@@ -1,5 +1,7 @@
 import React from 'react';
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, Link } from 'react-router-dom';
+import { useFormik } from 'formik';
+import { DeleteIcon } from '@chakra-ui/icons';
 import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
 import YouTube, { YouTubePlayer } from 'react-youtube';
@@ -223,6 +225,76 @@ function RoomForOwner() {
   );
 }
 
+function validateYoutubeIdOrUrl(value: string) {
+  if (!value) {
+    return 'Required';
+  }
+  if (
+    !value.match(/^[a-zA-Z0-9_-]{11}$/) &&
+    !value.match(/^(http(s)?:\/\/)?((w){3}.)?youtu(be|.be)?(\.com)?\/.+/)
+  ) {
+    return 'Invalid YouTube video id or url';
+  }
+  return;
+}
+
+function RoomForUser() {
+  const [videoQueue, setVideoQueue] = React.useState<string[]>([]);
+  const formik = useFormik({
+    initialValues: {
+      videoIdOrUrl: '',
+    },
+    validate: (values) => {
+      const errors: Record<string, string> = {};
+      const error = validateYoutubeIdOrUrl(values.videoIdOrUrl);
+      if (error) {
+        errors.videoIdOrUrl = error;
+      }
+      return errors;
+    },
+    onSubmit: (values) => {
+      setVideoQueue([...videoQueue, values.videoIdOrUrl]);
+    },
+  });
+
+  return (
+    <C.Container h="calc(100vh)">
+      <C.Stack spacing={8} p={4}>
+        <C.Heading>This is YouTube scheduler app</C.Heading>
+        <C.Box>
+          <C.Heading size="md">You are user</C.Heading>
+        </C.Box>
+        <C.Box>
+          <form onSubmit={formik.handleSubmit}>
+            <label htmlFor="videoIdOrUrl">Add video to queue</label>
+            <C.Input
+              id="videoIdOrUrl"
+              name="videoIdOrUrl"
+              type="text"
+              onChange={formik.handleChange}
+              value={formik.values.videoIdOrUrl}
+            />
+            {formik.errors.videoIdOrUrl ? <C.Text color='red'>{formik.errors.videoIdOrUrl}</C.Text> : null}
+            <C.Button type="submit">Add video</C.Button>
+          </form>
+          <C.Heading size="md">Videos in queue</C.Heading>
+          {videoQueue.map((videoId) => (
+            <C.Box key={videoId}>
+              <C.Heading size="md">{videoId}</C.Heading>
+              <C.Button
+                onClick={() => {
+                  setVideoQueue(videoQueue.filter((id) => id !== videoId));
+                }}>
+                <DeleteIcon />
+              </C.Button>
+            </C.Box>
+          ))}
+        </C.Box>
+      </C.Stack>
+    </C.Container>
+  );
+}
+
 function LandingPage() {
   return (
     <C.Container h="calc(100vh)">
@@ -234,12 +306,12 @@ function LandingPage() {
   );
 }
 
-
 function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/room" element={<RoomForOwner />} />
+      <Route path="/user" element={<RoomForUser />} />
     </Routes>
   );
 }
