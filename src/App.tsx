@@ -1,4 +1,5 @@
 import React from 'react';
+import { Routes, Route, Link } from "react-router-dom";
 import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
 import YouTube, { YouTubePlayer } from 'react-youtube';
@@ -165,7 +166,7 @@ function YoutubePage({
   return <C.Center>No videos in queue found</C.Center>;
 }
 
-function App() {
+function RoomForOwner() {
   const {
     data: userStatuses,
     isLoading,
@@ -219,6 +220,27 @@ function App() {
         </C.Box>
       </C.Stack>
     </C.Container>
+  );
+}
+
+function LandingPage() {
+  return (
+    <C.Container h="calc(100vh)">
+      <C.Center>
+        <C.Heading>This is YouTube scheduler app</C.Heading>
+        <Link to="/room">Create room</Link>
+      </C.Center>
+    </C.Container>
+  );
+}
+
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/room" element={<RoomForOwner />} />
+    </Routes>
   );
 }
 
