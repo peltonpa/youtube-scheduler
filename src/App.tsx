@@ -103,7 +103,6 @@ function YoutubePage({
   nextVideo: { userId: string; videoId: string } | null;
   mutateUserStatuses: KeyedMutator<UserStatus[]>;
 }) {
-  const [player, setPlayer] = React.useState<YouTubePlayer | undefined>(undefined);
   const [currentlyPlaying, setCurrentlyPlaying] = React.useState<{
     userId: string;
     videoId: string;
@@ -144,9 +143,6 @@ function YoutubePage({
         <YouTube
           opts={opts}
           videoId={currentlyPlaying?.videoId}
-          onReady={(event) => {
-            setPlayer(event.target);
-          }}
           onEnd={() => {
             if (nextVideo) {
               setCurrentlyPlaying(nextVideo);
