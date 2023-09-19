@@ -4,7 +4,7 @@ import { useFormik } from 'formik';
 import { DeleteIcon } from '@chakra-ui/icons';
 import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
-import YouTube, { YouTubePlayer } from 'react-youtube';
+import YouTube from 'react-youtube';
 import * as C from '@chakra-ui/react';
 
 const opts = {
@@ -19,6 +19,7 @@ type UserStatus = {
   name: string;
   id: string;
   videos_played: number;
+  last_played_timestamp: number;
   video_queue: string[];
 };
 
@@ -27,18 +28,21 @@ const fakeData: UserStatus[] = [
     name: 'kari',
     id: 'abc123',
     videos_played: 0,
+    last_played_timestamp: 0,
     video_queue: ['DXOPAHGOmL4', 'ozOLfaHtL5I'],
   },
   {
     name: 'seppo',
     id: 'def456',
     videos_played: 0,
+    last_played_timestamp: 0,
     video_queue: ['7WXEKPmpWQ4', 'OUwhq8GxFvw'],
   },
   {
     name: 'ismo',
     id: 'ghi789',
     videos_played: 0,
+    last_played_timestamp: 0,
     video_queue: ['rId8Dg--TQA', 'Fu84xJ7YXcc'],
   },
 ];
@@ -53,7 +57,7 @@ async function getUserStatuses(url: string) {
 function getNextUser(userStatuses: UserStatus[]): UserStatus | undefined {
   return _.minBy(
     userStatuses.filter((user) => user.video_queue.length > 0),
-    'videos_played'
+    'last_played_timestamp'
   );
 }
 
@@ -85,6 +89,7 @@ function updateVideoQueue({
         ...user,
         video_queue: user.video_queue.slice(1),
         videos_played: user.videos_played + 1,
+        last_played_timestamp: Date.now(),
       };
     }
     return user;
@@ -103,7 +108,6 @@ function YoutubePage({
   nextVideo: { userId: string; videoId: string } | null;
   mutateUserStatuses: KeyedMutator<UserStatus[]>;
 }) {
-  const [player, setPlayer] = React.useState<YouTubePlayer | undefined>(undefined);
   const [currentlyPlaying, setCurrentlyPlaying] = React.useState<{
     userId: string;
     videoId: string;
@@ -144,9 +148,6 @@ function YoutubePage({
         <YouTube
           opts={opts}
           videoId={currentlyPlaying?.videoId}
-          onReady={(event) => {
-            setPlayer(event.target);
-          }}
           onEnd={() => {
             if (nextVideo) {
               setCurrentlyPlaying(nextVideo);
@@ -201,18 +202,6 @@ function RoomForOwner() {
     <C.Container h="calc(100vh)">
       <C.Stack spacing={8} p={4}>
         <C.Heading>This is YouTube scheduler app</C.Heading>
-        {userStatuses.map((user) => {
-          return (
-            <C.Box key={user.id}>
-              <C.Box key={user.id}>
-                <C.Heading size="md">{user.name}</C.Heading>
-              </C.Box>
-              <C.Box key={user.videos_played}>
-                <C.Heading size="md">Videos played: {user.videos_played}</C.Heading>
-              </C.Box>
-            </C.Box>
-          );
-        })}
         <C.Box>
           <YoutubePage
             userStatuses={userStatuses}
@@ -274,7 +263,9 @@ function RoomForUser() {
               onChange={formik.handleChange}
               value={formik.values.videoIdOrUrl}
             />
-            {formik.errors.videoIdOrUrl ? <C.Text color='red'>{formik.errors.videoIdOrUrl}</C.Text> : null}
+            {formik.errors.videoIdOrUrl ? (
+              <C.Text color="red">{formik.errors.videoIdOrUrl}</C.Text>
+            ) : null}
             <C.Button type="submit">Add video</C.Button>
           </form>
           <C.Heading size="md">Videos in queue</C.Heading>
