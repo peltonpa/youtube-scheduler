@@ -202,6 +202,33 @@ function RoomForOwner() {
     <C.Container h="calc(100vh)">
       <C.Stack spacing={8} p={4}>
         <C.Heading>This is YouTube scheduler app</C.Heading>
+
+        <C.Box>
+          <C.Heading size="md">Users:</C.Heading>
+          {userStatuses.map((user) => (
+            <C.Text key={user.id}>
+              {user.name} - {user.videos_played} videos played - {user.id}
+            </C.Text>
+          ))}
+        </C.Box>
+
+        <AddUser
+          onAddUser={(name: string) => {
+            const newUserStatuses = [
+              ...userStatuses,
+              {
+                name,
+                id: window.crypto.randomUUID(),
+                videos_played: 0,
+                last_played_timestamp: 0,
+                video_queue: [],
+              },
+            ];
+            mutateUserStatuses(newUserStatuses, false);
+            fakeAPIStatuses = newUserStatuses;
+          }}
+        />
+
         <C.Box>
           <YoutubePage
             userStatuses={userStatuses}
@@ -225,6 +252,33 @@ function validateYoutubeIdOrUrl(value: string) {
     return 'Invalid YouTube video id or url';
   }
   return;
+}
+
+function AddUser({ onAddUser }: { onAddUser: (name: string) => void }) {
+  const formik = useFormik({
+    initialValues: {
+      name: '',
+    },
+    onSubmit: async (values) => {
+      onAddUser(values.name);
+    },
+  });
+
+  return (
+    <C.Box>
+      <form onSubmit={formik.handleSubmit}>
+        <label htmlFor="name">Add user</label>
+        <C.Input
+          id="name"
+          name="name"
+          type="text"
+          onChange={formik.handleChange}
+          value={formik.values.name}
+        />
+        <C.Button type="submit">Add user</C.Button>
+      </form>
+    </C.Box>
+  );
 }
 
 function RoomForUser() {
