@@ -1,0 +1,97 @@
+import axios from 'axios';
+import { isRight } from 'fp-ts/Either';
+import * as t from 'io-ts';
+import { PathReporter } from 'io-ts/PathReporter';
+
+//const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = 'http://localhost:5001';
+
+const API_RESPONSE = t.exact(
+  t.type(
+    {
+      data: t.type({
+        data: t.unknown,
+      }),
+    },
+    'API_RESPONSE'
+  )
+);
+
+const callApi = async (path: string, options: any) => {
+  const response = await axios(`${API_URL}/${path}`, options);
+  const responseData = API_RESPONSE.decode(response);
+  if (!isRight(responseData)) {
+    const report = PathReporter.report(responseData);
+    console.error('Invalid API response shape', { report });
+    throw new Error('Invalid API response shape');
+  }
+  return responseData.right.data.data;
+};
+
+const decodeUserFromData = (data: unknown) => {
+  const decodedUser = USER.decode(data);
+  if (!isRight(decodedUser)) {
+    const report = PathReporter.report(USER.decode(data));
+    console.error('Invalid user data shape', { report });
+    throw new Error('Invalid user data shape');
+  }
+  return decodedUser.right;
+};
+
+const decodeUserArrayFromData = (data: unknown) => {
+  const arrayOfUsers = t.array(USER).decode(data);
+  if (!isRight(arrayOfUsers)) {
+    const report = PathReporter.report(USER.decode(data));
+    console.error('Invalid user data shape', { report });
+    throw new Error('Invalid user data shape');
+  }
+  console.info('arrayOfUsers', arrayOfUsers);
+  return arrayOfUsers.right;
+};
+
+const decodeOwnerFromData = (data: unknown) => {
+  const decodedOwner = OWNER.decode(data);
+  if (!isRight(decodedOwner)) {
+    const report = PathReporter.report(OWNER.decode(data));
+    console.error('Invalid owner data shape', { report });
+    throw new Error('Invalid owner data shape');
+  }
+  return decodedOwner.right;
+};
+
+const USER = t.exact(
+  t.type({
+    id: t.string,
+    name: t.string,
+    video_queue: t.array(t.string),
+  }),
+  'User'
+);
+
+const OWNER = t.exact(
+  t.type({
+    id: t.string,
+  }),
+  'Owner'
+);
+
+export const createRoom = async () => {
+  const data = await callApi('owner', { method: 'POST' });
+  return decodeOwnerFromData(data);
+};
+
+export const createUser = async ({ name, ownerId }: { name: string; ownerId: string }) => {
+  const data = await callApi('users', { method: 'POST', data: { name, ownerId, video_queue: [] } });
+  return decodeUserFromData(data);
+};
+
+export const getUsersForOwner = async (ownerId: string) => {
+  const data = await callApi(`users/${ownerId}`, { method: 'GET' });
+  return decodeUserArrayFromData(data);
+};
+
+export const updateUserVideoQueue = async ({ id, video_queue }: { id: string, video_queue: string[]}) => {
+  const data = await callApi(`users/update-video-queue`, { method: 'PUT', data: { id, video_queue } });
+  return decodeUserFromData(data);
+}
+
