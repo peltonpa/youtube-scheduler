@@ -1,11 +1,12 @@
 import React from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import { DeleteIcon } from '@chakra-ui/icons';
 import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
 import YouTube from 'react-youtube';
 import * as C from '@chakra-ui/react';
+import { createRoom, createUser, getUsersForOwner, updateUserVideoQueue } from './callApi';
 
 const opts = {
   height: '390',
@@ -18,128 +19,77 @@ const opts = {
 type UserStatus = {
   name: string;
   id: string;
-  videos_played: number;
-  last_played_timestamp: number;
   video_queue: string[];
 };
 
-const fakeData: UserStatus[] = [
-  {
-    name: 'kari',
-    id: 'abc123',
-    videos_played: 0,
-    last_played_timestamp: 0,
-    video_queue: ['DXOPAHGOmL4', 'ozOLfaHtL5I'],
-  },
-  {
-    name: 'seppo',
-    id: 'def456',
-    videos_played: 0,
-    last_played_timestamp: 0,
-    video_queue: ['7WXEKPmpWQ4', 'OUwhq8GxFvw'],
-  },
-  {
-    name: 'ismo',
-    id: 'ghi789',
-    videos_played: 0,
-    last_played_timestamp: 0,
-    video_queue: ['rId8Dg--TQA', 'Fu84xJ7YXcc'],
-  },
-];
-
-let fakeAPIStatuses: UserStatus[] = [];
-
-async function getUserStatuses(url: string) {
-  // TODO: get user statuses from API
-  return fakeAPIStatuses;
+async function getUserStatuses([path, id]: [string, string]) {
+  return await getUsersForOwner(id);
 }
 
-function getNextUser(userStatuses: UserStatus[]): UserStatus | undefined {
-  return _.minBy(
-    userStatuses.filter((user) => user.video_queue.length > 0),
-    'last_played_timestamp'
-  );
-}
-
-function getNextVideo({
+const getNextVideo = ({
   userStatuses,
+  lastPlayedTimestamps,
 }: {
   userStatuses: UserStatus[];
-}): { userId: string; videoId: string } | null {
-  const nextUser = getNextUser(userStatuses);
-  if (!nextUser) {
+  lastPlayedTimestamps: { [key: string]: number };
+}): { userId: string; videoId: string } | null => {
+  const usersWithVideosInQueue = userStatuses.filter((user) => user.video_queue.length > 0);
+  const usersNotInTimestampObject = usersWithVideosInQueue.filter(
+    (user) => !lastPlayedTimestamps[user.id]
+  );
+  if (usersNotInTimestampObject.length > 0) {
+    const nextUserId = usersNotInTimestampObject[0].id;
+    const nextVideoId = userStatuses.find((user) => user.id === nextUserId)?.video_queue[0];
+    if (!nextVideoId) {
+      throw new Error('There must be a video in queue before scheduling next video');
+    }
+    return { userId: nextUserId, videoId: nextVideoId };
+  }
+  const nextUserId = _.minBy(usersWithVideosInQueue, (user) => lastPlayedTimestamps[user.id])?.id;
+  if (!nextUserId) {
     return null;
   }
-  const nextVideoId = nextUser.video_queue[0];
-  return { userId: nextUser.id, videoId: nextVideoId };
-}
-
-function updateVideoQueue({
-  userStatuses,
-  mutateUserStatuses,
-  nextUserId,
-}: {
-  userStatuses: UserStatus[];
-  mutateUserStatuses: KeyedMutator<UserStatus[]>;
-  nextUserId: string;
-}) {
-  const newUserStatuses = userStatuses.map((user) => {
-    if (user.id === nextUserId) {
-      return {
-        ...user,
-        video_queue: user.video_queue.slice(1),
-        videos_played: user.videos_played + 1,
-        last_played_timestamp: Date.now(),
-      };
-    }
-    return user;
-  });
-
-  fakeAPIStatuses = newUserStatuses;
-  mutateUserStatuses(newUserStatuses, false);
-}
+  const nextVideoId = userStatuses.find((user) => user.id === nextUserId)?.video_queue[0];
+  if (!nextVideoId) {
+    throw new Error('There must be a video in queue before scheduling next video');
+  }
+  return { userId: nextUserId, videoId: nextVideoId };
+};
 
 function YoutubePage({
   userStatuses,
-  nextVideo,
   mutateUserStatuses,
 }: {
   userStatuses: UserStatus[];
-  nextVideo: { userId: string; videoId: string } | null;
   mutateUserStatuses: KeyedMutator<UserStatus[]>;
 }) {
   const [currentlyPlaying, setCurrentlyPlaying] = React.useState<{
     userId: string;
     videoId: string;
   } | null>(null);
-
-  React.useEffect(() => {
-    if (currentlyPlaying) {
-      updateVideoQueue({
-        userStatuses,
-        mutateUserStatuses,
-        nextUserId: currentlyPlaying.userId,
-      });
-    }
-  }, [currentlyPlaying]);
+  const [lastPlayedTimestamps, setLastPlayedTimestamps] = React.useState<{ [key: string]: number }>(
+    {}
+  );
+  const nextVideo = React.useMemo(
+    () => getNextVideo({ userStatuses, lastPlayedTimestamps }),
+    [userStatuses, lastPlayedTimestamps]
+  );
 
   // Trigger next video if no current video but we have videos in queue for users
   if (!currentlyPlaying && nextVideo) {
-    setCurrentlyPlaying(nextVideo);
+    updateUserVideoQueue({
+      id: nextVideo.userId,
+      video_queue:
+        userStatuses.find((user) => user.id === nextVideo.userId)?.video_queue.slice(1) || [],
+    }).then(() => {
+      setLastPlayedTimestamps({ ...lastPlayedTimestamps, [nextVideo.userId]: Date.now() });
+      setCurrentlyPlaying(nextVideo);
+      mutateUserStatuses();
+    });
   }
 
   if (!nextVideo && !currentlyPlaying) {
-    return (
-      <C.Box>
-        No videos in queue found
-        <C.Button
-          onClick={() => {
-            fakeAPIStatuses = fakeData;
-          }}>
-          Lisää ismo videoita
-        </C.Button>
-      </C.Box>
-    );
+    return <C.Box>No videos in queue found</C.Box>;
   }
 
   if (currentlyPlaying?.videoId) {
@@ -148,20 +98,23 @@ function YoutubePage({
         <YouTube
           opts={opts}
           videoId={currentlyPlaying?.videoId}
-          onEnd={() => {
+          onEnd={async () => {
+            const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
             if (nextVideo) {
+              await updateUserVideoQueue({
+                id: nextVideo.userId,
+                video_queue:
+                  userStatuses.find((user) => user.id === nextVideo.userId)?.video_queue.slice(1) ||
+                  [],
+              });
               setCurrentlyPlaying(nextVideo);
+              setLastPlayedTimestamps({ ...lastPlayedTimestamps, [nextVideo.userId]: Date.now() });
             } else {
               setCurrentlyPlaying(null);
             }
+            mutateUserStatuses();
           }}
         />
-        <C.Button
-          onClick={() => {
-            fakeAPIStatuses = fakeData;
-          }}>
-          Lisää ismo video
-        </C.Button>
       </C.Box>
     );
   }
@@ -170,21 +123,12 @@ function YoutubePage({
 }
 
 function RoomForOwner() {
+  const { id } = useParams<{ id: string }>();
   const {
     data: userStatuses,
     isLoading,
     mutate: mutateUserStatuses,
-  } = useSWR('/api/user_statuses', getUserStatuses, { refreshInterval: 5000 });
-  const [nextVideo, setNextVideo] = React.useState<{
-    userId: string;
-    videoId: string;
-  } | null>(null);
-
-  React.useEffect(() => {
-    if (userStatuses) {
-      setNextVideo(getNextVideo({ userStatuses }));
-    }
-  }, [userStatuses]);
+  } = useSWR(['/api/user_statuses', id], getUserStatuses, { refreshInterval: 5000 });
 
   if (!userStatuses && isLoading) {
     return (
@@ -198,6 +142,10 @@ function RoomForOwner() {
     return <C.Box>Failed to load user data</C.Box>;
   }
 
+  if (!id) {
+    return <C.Box>Invalid room id</C.Box>;
+  }
+
   return (
     <C.Container h="calc(100vh)">
       <C.Stack spacing={8} p={4}>
@@ -207,34 +155,21 @@ function RoomForOwner() {
           <C.Heading size="md">Users:</C.Heading>
           {userStatuses.map((user) => (
             <C.Text key={user.id}>
-              {user.name} - {user.videos_played} videos played - {user.id}
+              {user.name} - {user.id}
             </C.Text>
           ))}
         </C.Box>
 
         <AddUser
-          onAddUser={(name: string) => {
-            const newUserStatuses = [
-              ...userStatuses,
-              {
-                name,
-                id: window.crypto.randomUUID(),
-                videos_played: 0,
-                last_played_timestamp: 0,
-                video_queue: [],
-              },
-            ];
-            mutateUserStatuses(newUserStatuses, false);
-            fakeAPIStatuses = newUserStatuses;
+          onAddUser={async (name: string) => {
+            await createUser({ name, ownerId: id });
+            const users = await getUsersForOwner(id);
+            mutateUserStatuses(users, false);
           }}
         />
 
         <C.Box>
-          <YoutubePage
-            userStatuses={userStatuses}
-            mutateUserStatuses={mutateUserStatuses}
-            nextVideo={nextVideo}
-          />
+          <YoutubePage userStatuses={userStatuses} mutateUserStatuses={mutateUserStatuses} />
         </C.Box>
       </C.Stack>
     </C.Container>
@@ -282,6 +217,10 @@ function AddUser({ onAddUser }: { onAddUser: (name: string) => void }) {
 }
 
 function RoomForUser() {
+  const { id } = useParams<{ id: string }>();
+  if (!id) {
+    throw new Error('Must have user id');
+  }
   const [videoQueue, setVideoQueue] = React.useState<string[]>([]);
   const formik = useFormik({
     initialValues: {
@@ -295,7 +234,8 @@ function RoomForUser() {
       }
       return errors;
     },
-    onSubmit: (values) => {
+    onSubmit: async (values) => {
+      await updateUserVideoQueue({ id, video_queue: [...videoQueue, values.videoIdOrUrl] });
       setVideoQueue([...videoQueue, values.videoIdOrUrl]);
     },
   });
@@ -327,8 +267,13 @@ function RoomForUser() {
             <C.Box key={videoId}>
               <C.Heading size="md">{videoId}</C.Heading>
               <C.Button
-                onClick={() => {
-                  setVideoQueue(videoQueue.filter((id) => id !== videoId));
+                onClick={async () => {
+                  const newQueue = videoQueue.slice(1);
+                  await updateUserVideoQueue({
+                    id,
+                    video_queue: newQueue,
+                  });
+                  setVideoQueue(newQueue);
                 }}>
                 <DeleteIcon />
               </C.Button>
@@ -341,11 +286,18 @@ function RoomForUser() {
 }
 
 function LandingPage() {
+  const navigate = useNavigate();
   return (
     <C.Container h="calc(100vh)">
       <C.Center>
         <C.Heading>This is YouTube scheduler app</C.Heading>
-        <Link to="/room">Create room</Link>
+        <C.Button
+          onClick={async () => {
+            const { id } = await createRoom();
+            navigate(`/room/${id}`);
+          }}>
+          Click to create a room
+        </C.Button>
       </C.Center>
     </C.Container>
   );
@@ -355,8 +307,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/room" element={<RoomForOwner />} />
-      <Route path="/user" element={<RoomForUser />} />
+      <Route path="/room/:id" element={<RoomForOwner />} />
+      <Route path="/user/:id" element={<RoomForUser />} />
     </Routes>
   );
 }
