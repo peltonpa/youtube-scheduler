@@ -3,8 +3,7 @@ import { isRight } from 'fp-ts/Either';
 import * as t from 'io-ts';
 import { PathReporter } from 'io-ts/PathReporter';
 
-//const API_URL = process.env.REACT_APP_API_URL;
-const API_URL = 'http://localhost:5001';
+const API_URL = process.env.REACT_APP_API_URL;
 
 const API_RESPONSE = t.exact(
   t.type(
