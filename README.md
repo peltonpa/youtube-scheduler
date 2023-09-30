@@ -1,46 +1,19 @@
-# Getting Started with Create React App
+# Youtube scheduler app  
+This app is a tool for scheduling turns for Youtube videos in one device from multiple users individual queues. Example use case is gathering with friends and people wanting to put music on in turns. With this app everyone can schedule their own queue from their device, and a device connected to speakers will play Youtube giving turns to each users so that everyone's tunes go in orderly fashion.
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Note that you either need to host this somewhere to work over the internet or have the users be on same network for this to work (or use browser tabs in the main user who is connected to speaker).
 
-## Available Scripts
+More detailed instructions:
+1. main user (user connected to speaker) loads the app
+2. creates a room
+3. adds users
+4. each user has an id, and they can go to `<app-url>/user/:id` (ids visible in main user page)
+5. users start adding videos
+6. the main user (connected to speaker) starts automatically playing videos from the users in turns
+7. if videos run out in the queues, the main user will periodically refresh the current queue statuses and when there are new videos, it starts autoplaying them in order again
 
-In the project directory, you can run:
+## Running the app locally
+Run the API first (https://github.com/peltonpa/youtube-scheduler-api)
 
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+After that, run:
+`REACT_APP_API_URL=http://localhost:5001 npm start`
