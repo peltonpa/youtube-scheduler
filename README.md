@@ -1,7 +1,9 @@
 # Youtube scheduler app  
 This app is a tool for scheduling turns for Youtube videos in one device from multiple users individual queues. Example use case is gathering with friends and people wanting to put music on in turns. With this app everyone can schedule their own queue from their device, and a device connected to speakers will play Youtube giving turns to each users so that everyone's tunes go in orderly fashion.
 
-Note that you either need to host this somewhere to work over the internet or have the users be on same network for this to work (or use browser tabs in the main user who is connected to speaker).
+This app runs in conjunction with an API that stores the users and their queues. The code for the API is found at https://github.com/peltonpa/youtube-scheduler-api
+
+Note that you either need to host the API somewhere for thie app to work over the internet or have the users be on same network where the API is running (or use browser tabs in the main user who is connected to speaker).
 
 More detailed instructions:
 1. main user (user connected to speaker) loads the app
