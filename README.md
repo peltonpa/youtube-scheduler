@@ -3,7 +3,7 @@ This app is a tool for scheduling turns for Youtube videos in one device from mu
 
 This app runs in conjunction with an API that stores the users and their queues. The code for the API is found at https://github.com/peltonpa/youtube-scheduler-api
 
-Note that you either need to host the API somewhere for thie app to work over the internet or have the users be on same network where the API is running (or use browser tabs in the main user who is connected to speaker).
+Note that you either need to host the API somewhere for the app to work over the internet or have the users be on same network where the API is running (or use browser tabs in the main user who is connected to speaker).
 
 More detailed instructions:
 1. main user (user connected to speaker) loads the app
