@@ -16,8 +16,7 @@ import {
 import { Logo } from './logo';
 
 const opts = {
-  height: '390',
-  width: '640',
+  width: 250,
   playerVars: {
     autoplay: 1,
   },
@@ -116,6 +115,7 @@ function YoutubePage({
     return (
       <C.Box>
         <C.Center>
+          <C.Box maxWidth='100%'>
           <YouTube
             opts={opts}
             videoId={currentlyPlaying?.videoId}
@@ -140,6 +140,7 @@ function YoutubePage({
               mutateUserStatuses();
             }}
           />
+      </C.Box>
         </C.Center>
       </C.Box>
     );
