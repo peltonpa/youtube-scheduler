@@ -115,32 +115,32 @@ function YoutubePage({
     return (
       <C.Box>
         <C.Center>
-          <C.Box maxWidth='100%'>
-          <YouTube
-            opts={opts}
-            videoId={currentlyPlaying?.videoId}
-            onEnd={async () => {
-              const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
-              if (nextVideo) {
-                await updateUserVideoQueue({
-                  id: nextVideo.userId,
-                  video_queue:
-                    userStatuses
-                      .find((user) => user.id === nextVideo.userId)
-                      ?.video_queue.slice(1) || [],
-                });
-                setCurrentlyPlaying(nextVideo);
-                setLastPlayedTimestamps({
-                  ...lastPlayedTimestamps,
-                  [nextVideo.userId]: Date.now(),
-                });
-              } else {
-                setCurrentlyPlaying(null);
-              }
-              mutateUserStatuses();
-            }}
-          />
-      </C.Box>
+          <C.Box maxWidth="100%">
+            <YouTube
+              opts={opts}
+              videoId={currentlyPlaying?.videoId}
+              onEnd={async () => {
+                const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
+                if (nextVideo) {
+                  await updateUserVideoQueue({
+                    id: nextVideo.userId,
+                    video_queue:
+                      userStatuses
+                        .find((user) => user.id === nextVideo.userId)
+                        ?.video_queue.slice(1) || [],
+                  });
+                  setCurrentlyPlaying(nextVideo);
+                  setLastPlayedTimestamps({
+                    ...lastPlayedTimestamps,
+                    [nextVideo.userId]: Date.now(),
+                  });
+                } else {
+                  setCurrentlyPlaying(null);
+                }
+                mutateUserStatuses();
+              }}
+            />
+          </C.Box>
         </C.Center>
       </C.Box>
     );
@@ -166,19 +166,18 @@ function UserItem({ name, id, video_queue }: { name: string; id: string; video_q
             {video_queue.length ? 'Active' : 'No videos in queue'}
           </C.Badge>
         </C.Text>
-        <C.HStack>
-          <C.Link
-            target="_blank"
-            href={`https://levyraati.xyz/user/${id}`}
-            fontSize="sm">{`https://levyraati.xyz/user/${id}`}</C.Link>
-          <C.IconButton
-            size="xs"
-            colorScheme="blackAlpha"
-            aria-label="Copy URL"
-            icon={<CopyIcon />}
-            onClick={onCopy}
-          />
-        </C.HStack>
+        <C.Link
+          target="_blank"
+          href={`https://levyraati.xyz/user/${id}`}
+          fontSize="xs">{`https://levyraati.xyz/user/${id}`}</C.Link>
+        <C.IconButton
+          size="xs"
+          width={16}
+          bg="purple.100"
+          aria-label="Copy URL"
+          icon={<CopyIcon />}
+          onClick={onCopy}
+        />
       </C.Stack>
     </C.Flex>
   );
@@ -282,7 +281,9 @@ function AddUser({ onAddUser }: { onAddUser: (name: string) => void }) {
             onChange={formik.handleChange}
             value={formik.values.name}
           />
-          <C.Button type="submit">Add user</C.Button>
+          <C.Button type="submit">
+            <C.Text fontSize="xs">Add user</C.Text>
+          </C.Button>
         </C.HStack>
       </form>
     </C.Box>
@@ -340,46 +341,41 @@ function RoomForUser() {
             id="videoIdOrUrl"
             name="videoIdOrUrl"
             type="text"
-            placeholder="Add Youtube video id or URL"
+            placeholder="Insert YouTube URL"
             onChange={formik.handleChange}
             value={formik.values.videoIdOrUrl}
           />
           {formik.errors.videoIdOrUrl ? (
             <C.Text color="red">{formik.errors.videoIdOrUrl}</C.Text>
           ) : null}
-          <C.Button type="submit">Add video</C.Button>
+          <C.Button type="submit" size="md">
+            <C.Text fontSize="xs">Add video</C.Text>
+          </C.Button>
         </C.HStack>
       </form>
       {videoQueue.map((videoId, index) => (
         <C.Flex key={videoId} backgroundColor="#FFE7AF" p={4} borderRadius="10px">
-          <C.Center>
-            <C.Icon boxSize={50}>
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </C.Icon>
-          </C.Center>
-          <C.Stack ml="3">
+          <C.Center></C.Center>
+          <C.Stack spacing={4} ml="3">
             <C.Text fontWeight="bold">
               {videoId}
               <C.Badge ml="2" colorScheme={index === 0 ? 'green' : 'purple'}>
-                {index === 0 ? 'Your next video' : 'Queued'}
+                <C.Text fontSize="xs">{index === 0 ? 'Your next video' : 'Queued'}</C.Text>
               </C.Badge>
             </C.Text>
-            <C.HStack>
-              <C.Link
-                target="_blank"
-                href={`https://youtube.com/videos/${videoId}`}
-                fontSize="sm">{`https://youtube.com/videos${videoId}`}</C.Link>
-              <C.Button
-                onClick={async () => {
-                  await mutateVideoQueue();
-                  const newQueue = videoQueue.filter((id) => id !== videoId);
-                  await updateUserVideoQueue({ id, video_queue: newQueue });
-                  mutateVideoQueue(newQueue);
-                }}>
-                <DeleteIcon />
-              </C.Button>
-            </C.HStack>
+            <C.Link
+              target="_blank"
+              href={`https://youtube.com/videos/${videoId}`}
+              fontSize="xs">{`https://youtube.com/videos${videoId}`}</C.Link>
+            <C.Button
+              onClick={async () => {
+                await mutateVideoQueue();
+                const newQueue = videoQueue.filter((id) => id !== videoId);
+                await updateUserVideoQueue({ id, video_queue: newQueue });
+                mutateVideoQueue(newQueue);
+              }}>
+              <DeleteIcon />
+            </C.Button>
           </C.Stack>
         </C.Flex>
       ))}
@@ -398,7 +394,7 @@ function Footer() {
             </C.Link>
             <C.Center>
               <C.Text fontSize="sm" mt={2} pb={8} fontWeight="bold" color="fg.subtle">
-                &copy; 2023 Levyraati
+                2023
               </C.Text>
             </C.Center>
           </C.Box>
@@ -456,7 +452,7 @@ function LandingPage() {
             const { id } = await createRoom();
             navigate(`/room/${id}`);
           }}>
-          Click here to create a room and schedule YT videos
+          Click here to create a room
         </C.Button>
         <C.Center>
           <C.Box width="50%">
