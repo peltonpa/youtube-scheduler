@@ -26,6 +26,10 @@ async function getUserStatuses([path, id]: [string, string]) {
   return await getUsersForOwner(id);
 }
 
+async function getVideoQueue([path, id]: [string, string]) {
+  return await getVideoQueueForUser(id);
+}
+
 const getNextVideo = ({
   userStatuses,
   lastPlayedTimestamps,
@@ -218,10 +222,12 @@ function AddUser({ onAddUser }: { onAddUser: (name: string) => void }) {
 
 function RoomForUser() {
   const { id } = useParams<{ id: string }>();
-  if (!id) {
-    throw new Error('Must have user id');
-  }
-  const [videoQueue, setVideoQueue] = React.useState<string[]>([]);
+  const { data: videoQueue, mutate: mutateVideoQueue } = useSWR(
+    ['/video-queue/user_statuses', id],
+    getVideoQueue,
+    { refreshInterval: 5000 }
+  );
+
   const formik = useFormik({
     initialValues: {
       videoIdOrUrl: '',
@@ -235,25 +241,37 @@ function RoomForUser() {
       return errors;
     },
     onSubmit: async (values) => {
-      await updateUserVideoQueue({ id, video_queue: [...videoQueue, values.videoIdOrUrl] });
-      setVideoQueue([...videoQueue, values.videoIdOrUrl]);
+      const videoIdMatch = values.videoIdOrUrl.match(/([a-zA-Z0-9_-]{11})/);
+      const [videoId] = videoIdMatch || [];
+      if (videoQueue && id && videoId) {
+        await mutateVideoQueue();
+        const newQueue = [...videoQueue, videoId];
+        await updateUserVideoQueue({ id, video_queue: newQueue });
+        mutateVideoQueue(newQueue);
+      }
     },
   });
 
+  if (!id) {
+    throw new Error('Must have user id');
+  }
+  if (!videoQueue) {
+    return (
+      <C.Center>
+        <C.Spinner />
+      </C.Center>
+    );
+  }
+
   return (
-    <C.Container h="calc(100vh)">
-      <C.Stack spacing={8} p={4}>
-        <C.Heading>This is YouTube scheduler app</C.Heading>
-        <C.Box>
-          <C.Heading size="md">You are user</C.Heading>
-        </C.Box>
-        <C.Box>
-          <form onSubmit={formik.handleSubmit}>
-            <label htmlFor="videoIdOrUrl">Add video to queue</label>
+    <C.Stack spacing={4} p={4}>
+        <form onSubmit={formik.handleSubmit}>
+          <C.HStack>
             <C.Input
               id="videoIdOrUrl"
               name="videoIdOrUrl"
               type="text"
+              placeholder="Add Youtube video id or URL"
               onChange={formik.handleChange}
               value={formik.values.videoIdOrUrl}
             />
