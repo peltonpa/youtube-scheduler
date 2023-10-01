@@ -1,12 +1,19 @@
 import React from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
-import { DeleteIcon } from '@chakra-ui/icons';
+import { DeleteIcon, CopyIcon } from '@chakra-ui/icons';
 import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
 import YouTube from 'react-youtube';
 import * as C from '@chakra-ui/react';
-import { createRoom, createUser, getUsersForOwner, updateUserVideoQueue } from './callApi';
+import {
+  createRoom,
+  createUser,
+  getUsersForOwner,
+  getVideoQueueForUser,
+  updateUserVideoQueue,
+} from './callApi';
+import { Logo } from './logo';
 
 const opts = {
   height: '390',
@@ -93,37 +100,87 @@ function YoutubePage({
   }
 
   if (!nextVideo && !currentlyPlaying) {
-    return <C.Box>No videos in queue found</C.Box>;
+    return (
+      <C.Center>
+        <C.Stack>
+          <C.Box width={200}>
+            <Logo />
+          </C.Box>
+          {userStatuses.length > 0 && <C.Box pt={4}>No videos in queue found :(</C.Box>}
+        </C.Stack>
+      </C.Center>
+    );
   }
 
   if (currentlyPlaying?.videoId) {
     return (
       <C.Box>
-        <YouTube
-          opts={opts}
-          videoId={currentlyPlaying?.videoId}
-          onEnd={async () => {
-            const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
-            if (nextVideo) {
-              await updateUserVideoQueue({
-                id: nextVideo.userId,
-                video_queue:
-                  userStatuses.find((user) => user.id === nextVideo.userId)?.video_queue.slice(1) ||
-                  [],
-              });
-              setCurrentlyPlaying(nextVideo);
-              setLastPlayedTimestamps({ ...lastPlayedTimestamps, [nextVideo.userId]: Date.now() });
-            } else {
-              setCurrentlyPlaying(null);
-            }
-            mutateUserStatuses();
-          }}
-        />
+        <C.Center>
+          <YouTube
+            opts={opts}
+            videoId={currentlyPlaying?.videoId}
+            onEnd={async () => {
+              const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
+              if (nextVideo) {
+                await updateUserVideoQueue({
+                  id: nextVideo.userId,
+                  video_queue:
+                    userStatuses
+                      .find((user) => user.id === nextVideo.userId)
+                      ?.video_queue.slice(1) || [],
+                });
+                setCurrentlyPlaying(nextVideo);
+                setLastPlayedTimestamps({
+                  ...lastPlayedTimestamps,
+                  [nextVideo.userId]: Date.now(),
+                });
+              } else {
+                setCurrentlyPlaying(null);
+              }
+              mutateUserStatuses();
+            }}
+          />
+        </C.Center>
       </C.Box>
     );
   }
 
   return <C.Center>No videos in queue found</C.Center>;
+}
+
+function UserItem({ name, id, video_queue }: { name: string; id: string; video_queue: string[] }) {
+  const { onCopy } = C.useClipboard(`https://levyraati.xyz/user/${id}`);
+  return (
+    <C.Flex backgroundColor="#FFE7AF" p={4} borderRadius="10px">
+      <C.Center>
+        <C.Icon boxSize={50}>
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </C.Icon>
+      </C.Center>
+      <C.Stack ml="3">
+        <C.Text fontWeight="bold">
+          {name}
+          <C.Badge ml="2" colorScheme={video_queue.length ? 'green' : 'purple'}>
+            {video_queue.length ? 'Active' : 'No videos in queue'}
+          </C.Badge>
+        </C.Text>
+        <C.HStack>
+          <C.Link
+            target="_blank"
+            href={`https://levyraati.xyz/user/${id}`}
+            fontSize="sm">{`https://levyraati.xyz/user/${id}`}</C.Link>
+          <C.IconButton
+            size="xs"
+            colorScheme="blackAlpha"
+            aria-label="Copy URL"
+            icon={<CopyIcon />}
+            onClick={onCopy}
+          />
+        </C.HStack>
+      </C.Stack>
+    </C.Flex>
+  );
 }
 
 function RoomForOwner() {
@@ -151,17 +208,30 @@ function RoomForOwner() {
   }
 
   return (
-    <C.Container h="calc(100vh)">
-      <C.Stack spacing={8} p={4}>
-        <C.Heading>This is YouTube scheduler app</C.Heading>
+    <C.Stack spacing={16} p={4}>
+      <C.Box width="100%">
+        <C.Center>
+          <C.Heading width="100%">
+            <C.Center>Let's go</C.Center>
+          </C.Heading>
+        </C.Center>
+      </C.Box>
 
+      <C.Box>
+        <YoutubePage userStatuses={userStatuses} mutateUserStatuses={mutateUserStatuses} />
+      </C.Box>
+
+      <C.Stack spacing={8}>
         <C.Box>
-          <C.Heading size="md">Users:</C.Heading>
-          {userStatuses.map((user) => (
-            <C.Text key={user.id}>
-              {user.name} - {user.id}
-            </C.Text>
-          ))}
+          {userStatuses.length > 0 ? (
+            <C.Stack spacing={8} mt={4}>
+              {userStatuses.map((user) => (
+                <UserItem key={id} {...user} />
+              ))}
+            </C.Stack>
+          ) : (
+            <C.Center>Add users below to get started!</C.Center>
+          )}
         </C.Box>
 
         <AddUser
@@ -171,12 +241,8 @@ function RoomForOwner() {
             mutateUserStatuses(users, false);
           }}
         />
-
-        <C.Box>
-          <YoutubePage userStatuses={userStatuses} mutateUserStatuses={mutateUserStatuses} />
-        </C.Box>
       </C.Stack>
-    </C.Container>
+    </C.Stack>
   );
 }
 
@@ -206,15 +272,17 @@ function AddUser({ onAddUser }: { onAddUser: (name: string) => void }) {
   return (
     <C.Box>
       <form onSubmit={formik.handleSubmit}>
-        <label htmlFor="name">Add user</label>
-        <C.Input
-          id="name"
-          name="name"
-          type="text"
-          onChange={formik.handleChange}
-          value={formik.values.name}
-        />
-        <C.Button type="submit">Add user</C.Button>
+        <C.HStack>
+          <C.Input
+            id="name"
+            placeholder="Enter new user name"
+            name="name"
+            type="text"
+            onChange={formik.handleChange}
+            value={formik.values.name}
+          />
+          <C.Button type="submit">Add user</C.Button>
+        </C.HStack>
       </form>
     </C.Box>
   );
@@ -265,69 +333,162 @@ function RoomForUser() {
 
   return (
     <C.Stack spacing={4} p={4}>
-        <form onSubmit={formik.handleSubmit}>
-          <C.HStack>
-            <C.Input
-              id="videoIdOrUrl"
-              name="videoIdOrUrl"
-              type="text"
-              placeholder="Add Youtube video id or URL"
-              onChange={formik.handleChange}
-              value={formik.values.videoIdOrUrl}
-            />
-            {formik.errors.videoIdOrUrl ? (
-              <C.Text color="red">{formik.errors.videoIdOrUrl}</C.Text>
-            ) : null}
-            <C.Button type="submit">Add video</C.Button>
-          </form>
-          <C.Heading size="md">Videos in queue</C.Heading>
-          {videoQueue.map((videoId) => (
-            <C.Box key={videoId}>
-              <C.Heading size="md">{videoId}</C.Heading>
+      <form onSubmit={formik.handleSubmit}>
+        <C.HStack>
+          <C.Input
+            id="videoIdOrUrl"
+            name="videoIdOrUrl"
+            type="text"
+            placeholder="Add Youtube video id or URL"
+            onChange={formik.handleChange}
+            value={formik.values.videoIdOrUrl}
+          />
+          {formik.errors.videoIdOrUrl ? (
+            <C.Text color="red">{formik.errors.videoIdOrUrl}</C.Text>
+          ) : null}
+          <C.Button type="submit">Add video</C.Button>
+        </C.HStack>
+      </form>
+      {videoQueue.map((videoId, index) => (
+        <C.Flex key={videoId} backgroundColor="#FFE7AF" p={4} borderRadius="10px">
+          <C.Center>
+            <C.Icon boxSize={50}>
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </C.Icon>
+          </C.Center>
+          <C.Stack ml="3">
+            <C.Text fontWeight="bold">
+              {videoId}
+              <C.Badge ml="2" colorScheme={index === 0 ? 'green' : 'purple'}>
+                {index === 0 ? 'Your next video' : 'Queued'}
+              </C.Badge>
+            </C.Text>
+            <C.HStack>
+              <C.Link
+                target="_blank"
+                href={`https://youtube.com/videos/${videoId}`}
+                fontSize="sm">{`https://youtube.com/videos${videoId}`}</C.Link>
               <C.Button
                 onClick={async () => {
-                  const newQueue = videoQueue.slice(1);
-                  await updateUserVideoQueue({
-                    id,
-                    video_queue: newQueue,
-                  });
-                  setVideoQueue(newQueue);
+                  await mutateVideoQueue();
+                  const newQueue = videoQueue.filter((id) => id !== videoId);
+                  await updateUserVideoQueue({ id, video_queue: newQueue });
+                  mutateVideoQueue(newQueue);
                 }}>
                 <DeleteIcon />
               </C.Button>
-            </C.Box>
-          ))}
-        </C.Box>
-      </C.Stack>
+            </C.HStack>
+          </C.Stack>
+        </C.Flex>
+      ))}
+    </C.Stack>
+  );
+}
+
+function Footer() {
+  return (
+    <C.Container as="footer" role="contentinfo" pt={12}>
+      <C.Center>
+        <C.Stack>
+          <C.Box w={120}>
+            <C.Link href="https://levyraati.xyz">
+              <Logo />
+            </C.Link>
+            <C.Center>
+              <C.Text fontSize="sm" mt={2} pb={8} fontWeight="bold" color="fg.subtle">
+                &copy; 2023 Levyraati
+              </C.Text>
+            </C.Center>
+          </C.Box>
+        </C.Stack>
+      </C.Center>
     </C.Container>
+  );
+}
+
+function Instructions() {
+  const { isOpen, onOpen, onClose } = C.useDisclosure();
+  return (
+    <>
+      <C.Button colorScheme="pink" onClick={onOpen}>
+        Instructions
+      </C.Button>
+
+      <C.Modal isOpen={isOpen} onClose={onClose}>
+        <C.ModalOverlay />
+        <C.ModalContent>
+          <C.ModalHeader>Youtube scheduler app</C.ModalHeader>
+          <C.ModalCloseButton />
+          <C.ModalBody>
+            This app functions as a centralized Youtube video queue. <br />
+            <br />
+            You can add users, and give each user a link that they can use on their own device to
+            queue videos. The device where this app runs on will then play videos from the users one
+            by one.
+            <br />
+            <br /> Click the button in the main page to create a room an get started!
+          </C.ModalBody>
+
+          <C.ModalFooter>
+            <C.Button colorScheme="blue" mr={3} onClick={onClose}>
+              Close
+            </C.Button>
+          </C.ModalFooter>
+        </C.ModalContent>
+      </C.Modal>
+    </>
   );
 }
 
 function LandingPage() {
   const navigate = useNavigate();
   return (
-    <C.Container h="calc(100vh)">
-      <C.Center>
-        <C.Heading>This is YouTube scheduler app</C.Heading>
+    <C.Center>
+      <C.Stack spacing={12}>
+        <C.Center>
+          <C.Heading>Welcome</C.Heading>
+        </C.Center>
         <C.Button
+          colorScheme="purple"
           onClick={async () => {
             const { id } = await createRoom();
             navigate(`/room/${id}`);
           }}>
-          Click to create a room
+          Click here to create a room and schedule YT videos
         </C.Button>
-      </C.Center>
+        <C.Center>
+          <C.Box width="50%">
+            <C.Center>
+              <Instructions />
+            </C.Center>
+          </C.Box>
+        </C.Center>
+      </C.Stack>
+    </C.Center>
+  );
+}
+
+function MainContainer({ children }: { children: string | JSX.Element | JSX.Element[] }) {
+  return (
+    <C.Container pt={20} as="main">
+      {children}
+      <Footer />
     </C.Container>
   );
 }
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/room/:id" element={<RoomForOwner />} />
-      <Route path="/user/:id" element={<RoomForUser />} />
-    </Routes>
+    <C.Box backgroundColor="#FFFAE8">
+      <MainContainer>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/room/:id" element={<RoomForOwner />} />
+          <Route path="/user/:id" element={<RoomForUser />} />
+        </Routes>
+      </MainContainer>
+    </C.Box>
   );
 }
 
