@@ -58,6 +58,16 @@ const decodeOwnerFromData = (data: unknown) => {
   return decodedOwner.right;
 };
 
+const decodeVideoQueueFromData = (data: unknown) => {
+  const decodedVideoQueue = USER_VIDEO_QUEUE_RESPONSE.decode(data);
+  if (!isRight(decodedVideoQueue)) {
+    const report = PathReporter.report(USER_VIDEO_QUEUE_RESPONSE.decode(data));
+    console.error('Invalid video queue data shape', { report });
+    throw new Error('Invalid video queue data shape');
+  }
+  return decodedVideoQueue.right.video_queue;
+}
+
 const USER = t.exact(
   t.type({
     id: t.string,
@@ -65,6 +75,14 @@ const USER = t.exact(
     video_queue: t.array(t.string),
   }),
   'User'
+);
+
+const USER_VIDEO_QUEUE_RESPONSE = t.exact(
+  t.type({
+    id: t.string,
+    video_queue: t.array(t.string),
+  }),
+  'USER_VIDEO_QUEUE_RESPONSE'
 );
 
 const OWNER = t.exact(
@@ -89,8 +107,21 @@ export const getUsersForOwner = async (ownerId: string) => {
   return decodeUserArrayFromData(data);
 };
 
-export const updateUserVideoQueue = async ({ id, video_queue }: { id: string, video_queue: string[]}) => {
-  const data = await callApi(`users/update-video-queue`, { method: 'PUT', data: { id, video_queue } });
+export const updateUserVideoQueue = async ({
+  id,
+  video_queue,
+}: {
+  id: string;
+  video_queue: string[];
+}) => {
+  const data = await callApi(`users/update-video-queue`, {
+    method: 'PUT',
+    data: { id, video_queue },
+  });
   return decodeUserFromData(data);
-}
+};
 
+export const getVideoQueueForUser = async (userId: string) => {
+  const data = await callApi(`users/video-queue/${userId}`, { method: 'GET' });
+  return decodeVideoQueueFromData(data);
+}
