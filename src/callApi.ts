@@ -68,6 +68,16 @@ const decodeVideoQueueFromData = (data: unknown) => {
   return decodedVideoQueue.right.video_queue;
 }
 
+const decodeVideoTitleFromData = (data: unknown) => {
+  const decodedVideoTitle = t.string.decode(data);
+  if (!isRight(decodedVideoTitle)) {
+    const report = PathReporter.report(t.string.decode(data));
+    console.error('Invalid video title data shape', { report });
+    throw new Error('Invalid video title data shape');
+  }
+  return decodedVideoTitle.right;
+}
+
 const USER = t.exact(
   t.type({
     id: t.string,
@@ -124,4 +134,9 @@ export const updateUserVideoQueue = async ({
 export const getVideoQueueForUser = async (userId: string) => {
   const data = await callApi(`users/video-queue/${userId}`, { method: 'GET' });
   return decodeVideoQueueFromData(data);
+}
+
+export const getVideoTitleFromId = async (videoId: string) => {
+  const data = await callApi(`video-id/${videoId}`, { method: 'GET' });
+  return decodeVideoTitleFromData(data);
 }
