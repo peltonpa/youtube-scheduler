@@ -6,6 +6,7 @@ import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
 import YouTube from 'react-youtube';
 import * as C from '@chakra-ui/react';
+import QRCode from 'react-qr-code';
 import {
   createRoom,
   createUser,
@@ -154,22 +155,23 @@ function UserItem({ name, id, video_queue }: { name: string; id: string; video_q
   return (
     <C.Flex backgroundColor="#FFE7AF" p={4} borderRadius="10px">
       <C.Center>
-        <C.Icon boxSize={50}>
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </C.Icon>
+        <QRCode value={`https://levyraati.xyz/user/${id}`} size={96} />
       </C.Center>
-      <C.Stack ml="3">
+      <C.Stack ml={8} spacing={4}>
         <C.Text fontWeight="bold">
           {name}
           <C.Badge ml="2" colorScheme={video_queue.length ? 'green' : 'purple'}>
             {video_queue.length ? 'Active' : 'No videos in queue'}
           </C.Badge>
         </C.Text>
-        <C.Link
-          target="_blank"
-          href={`https://levyraati.xyz/user/${id}`}
-          fontSize="xs">{`https://levyraati.xyz/user/${id}`}</C.Link>
+        <C.Heading>
+          <C.Center>
+            <C.Link
+              target="_blank"
+              href={`https://levyraati.xyz/user/${id}`}
+              fontSize="xs">{`https://levyraati.xyz/user/${id}`}</C.Link>
+          </C.Center>
+        </C.Heading>
         <C.IconButton
           size="xs"
           width={16}
