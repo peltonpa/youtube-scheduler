@@ -6,12 +6,14 @@ import useSWR, { KeyedMutator } from 'swr';
 import _ from 'lodash';
 import YouTube from 'react-youtube';
 import * as C from '@chakra-ui/react';
+import QRCode from 'react-qr-code';
 import {
   createRoom,
   createUser,
   getUsersForOwner,
   getVideoQueueForUser,
   updateUserVideoQueue,
+  getVideoTitleFromId,
 } from './callApi';
 import { Logo } from './logo';
 
@@ -34,6 +36,10 @@ async function getUserStatuses([path, id]: [string, string]) {
 
 async function getVideoQueue([path, id]: [string, string]) {
   return await getVideoQueueForUser(id);
+}
+
+async function getVideoTitle([path, id]: [string, string]) {
+  return await getVideoTitleFromId(id);
 }
 
 const getNextVideo = ({
@@ -112,37 +118,65 @@ function YoutubePage({
   }
 
   if (currentlyPlaying?.videoId) {
+    const currentName = userStatuses.find((user) => user.id === currentlyPlaying.userId)?.name;
+    const nextName = userStatuses.find((user) => user.id === nextVideo?.userId)?.name;
     return (
-      <C.Box>
-        <C.Center>
-          <C.Box maxWidth="100%">
-            <YouTube
-              opts={opts}
-              videoId={currentlyPlaying?.videoId}
-              onEnd={async () => {
-                const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
-                if (nextVideo) {
-                  await updateUserVideoQueue({
-                    id: nextVideo.userId,
-                    video_queue:
-                      userStatuses
-                        .find((user) => user.id === nextVideo.userId)
-                        ?.video_queue.slice(1) || [],
-                  });
-                  setCurrentlyPlaying(nextVideo);
-                  setLastPlayedTimestamps({
-                    ...lastPlayedTimestamps,
-                    [nextVideo.userId]: Date.now(),
-                  });
-                } else {
-                  setCurrentlyPlaying(null);
-                }
-                mutateUserStatuses();
-              }}
-            />
-          </C.Box>
-        </C.Center>
-      </C.Box>
+      <C.Stack spacing={8}>
+        <C.Box>
+          <C.Center>
+            <C.Box maxWidth="100%">
+              <YouTube
+                opts={opts}
+                videoId={currentlyPlaying?.videoId}
+                onEnd={async () => {
+                  const nextVideo = getNextVideo({ userStatuses, lastPlayedTimestamps });
+                  if (nextVideo) {
+                    await updateUserVideoQueue({
+                      id: nextVideo.userId,
+                      video_queue:
+                        userStatuses
+                          .find((user) => user.id === nextVideo.userId)
+                          ?.video_queue.slice(1) || [],
+                    });
+                    setCurrentlyPlaying(nextVideo);
+                    setLastPlayedTimestamps({
+                      ...lastPlayedTimestamps,
+                      [nextVideo.userId]: Date.now(),
+                    });
+                  } else {
+                    setCurrentlyPlaying(null);
+                  }
+                  mutateUserStatuses();
+                }}
+              />
+            </C.Box>
+          </C.Center>
+        </C.Box>
+        {currentName && (
+          <C.Flex p={4} backgroundColor="#ecf5da" borderRadius={8}>
+            <C.Stack spacing={8} ml="3">
+              <C.Box>
+                <C.Text>Now playing:</C.Text>
+                <C.Text fontWeight="bold">
+                  <VideoTitle id={currentlyPlaying.videoId} />
+                </C.Text>
+              </C.Box>
+              <C.HStack>
+                <C.Text>From: </C.Text>
+                <C.Badge ml="1" colorScheme="blue">
+                  <C.Text fontWeight="bold">{currentName}</C.Text>
+                </C.Badge>
+              </C.HStack>
+              <C.HStack>
+                <C.Text>Next up: </C.Text>
+                <C.Badge ml="1" colorScheme="yellow">
+                  <C.Text fontWeight="bold">{nextName ? nextName : 'Nobody in queue!'}</C.Text>
+                </C.Badge>
+              </C.HStack>
+            </C.Stack>
+          </C.Flex>
+        )}
+      </C.Stack>
     );
   }
 
@@ -154,22 +188,23 @@ function UserItem({ name, id, video_queue }: { name: string; id: string; video_q
   return (
     <C.Flex backgroundColor="#FFE7AF" p={4} borderRadius="10px">
       <C.Center>
-        <C.Icon boxSize={50}>
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </C.Icon>
+        <QRCode value={`https://levyraati.xyz/user/${id}`} size={96} />
       </C.Center>
-      <C.Stack ml="3">
+      <C.Stack ml={8} spacing={4}>
         <C.Text fontWeight="bold">
           {name}
           <C.Badge ml="2" colorScheme={video_queue.length ? 'green' : 'purple'}>
             {video_queue.length ? 'Active' : 'No videos in queue'}
           </C.Badge>
         </C.Text>
-        <C.Link
-          target="_blank"
-          href={`https://levyraati.xyz/user/${id}`}
-          fontSize="xs">{`https://levyraati.xyz/user/${id}`}</C.Link>
+        <C.Heading>
+          <C.Center>
+            <C.Link
+              target="_blank"
+              href={`https://levyraati.xyz/user/${id}`}
+              fontSize="xs">{`https://levyraati.xyz/user/${id}`}</C.Link>
+          </C.Center>
+        </C.Heading>
         <C.IconButton
           size="xs"
           width={16}
@@ -290,13 +325,21 @@ function AddUser({ onAddUser }: { onAddUser: (name: string) => void }) {
   );
 }
 
+function VideoTitle({ id }: { id: string }) {
+  const { data: title } = useSWR(['/video-id', id], getVideoTitle);
+  if (title) {
+    return <C.Box>{title}</C.Box>;
+  }
+  return null;
+}
+
 function RoomForUser() {
   const { id } = useParams<{ id: string }>();
-  const { data: videoQueue, mutate: mutateVideoQueue } = useSWR(
-    ['/video-queue/user_statuses', id],
-    getVideoQueue,
-    { refreshInterval: 5000 }
-  );
+  const {
+    data: videoQueue,
+    isLoading,
+    mutate: mutateVideoQueue,
+  } = useSWR(['/video-queue/user_statuses', id], getVideoQueue, { refreshInterval: 5000 });
 
   const formik = useFormik({
     initialValues: {
@@ -310,7 +353,7 @@ function RoomForUser() {
       }
       return errors;
     },
-    onSubmit: async (values) => {
+    onSubmit: async (values, actions) => {
       const videoIdMatch = values.videoIdOrUrl.match(/([a-zA-Z0-9_-]{11})/);
       const [videoId] = videoIdMatch || [];
       if (videoQueue && id && videoId) {
@@ -319,6 +362,7 @@ function RoomForUser() {
         await updateUserVideoQueue({ id, video_queue: newQueue });
         mutateVideoQueue(newQueue);
       }
+      actions.resetForm();
     },
   });
 
@@ -348,7 +392,7 @@ function RoomForUser() {
           {formik.errors.videoIdOrUrl ? (
             <C.Text color="red">{formik.errors.videoIdOrUrl}</C.Text>
           ) : null}
-          <C.Button type="submit" size="md">
+          <C.Button disabled={isLoading} type="submit" size="md">
             <C.Text fontSize="xs">Add video</C.Text>
           </C.Button>
         </C.HStack>
@@ -357,16 +401,19 @@ function RoomForUser() {
         <C.Flex key={videoId} backgroundColor="#FFE7AF" p={4} borderRadius="10px">
           <C.Center></C.Center>
           <C.Stack spacing={4} ml="3">
-            <C.Text fontWeight="bold">
+            <C.Text>
               {videoId}
               <C.Badge ml="2" colorScheme={index === 0 ? 'green' : 'purple'}>
                 <C.Text fontSize="xs">{index === 0 ? 'Your next video' : 'Queued'}</C.Text>
               </C.Badge>
             </C.Text>
+            <C.Text fontWeight="bold">
+              <VideoTitle id={videoId} />
+            </C.Text>
             <C.Link
               target="_blank"
               href={`https://youtube.com/videos/${videoId}`}
-              fontSize="xs">{`https://youtube.com/videos${videoId}`}</C.Link>
+              fontSize="xs">{`https://youtube.com/videos/${videoId}`}</C.Link>
             <C.Button
               onClick={async () => {
                 await mutateVideoQueue();
